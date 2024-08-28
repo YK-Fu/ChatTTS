@@ -36,5 +36,4 @@ def select_device(min_memory=2047, experimental=False):
     else:
         logger.get_logger().warning("no GPU found, use CPU instead")
         device = torch.device("cpu")
-
     return device

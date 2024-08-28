@@ -184,7 +184,7 @@ class Chat:
         repetition_penalty: float = 1.0
         max_new_token: int = 384
         min_new_token: int = 0
-        show_tqdm: bool = True
+        show_tqdm: bool = False
         ensure_non_empty: bool = True
 
     @dataclass(repr=False, eq=False)
@@ -354,7 +354,6 @@ class Chat:
 
         if not isinstance(text, list):
             text = [text]
-
         text = [
             self.normalizer(
                 t,
@@ -374,11 +373,11 @@ class Chat:
             text_tokens = refined.ids
             text_tokens = [i[i.less(self.tokenizer.break_0_ids)] for i in text_tokens]
             text = self.tokenizer.decode(text_tokens)
+            # text = [t if t[-10:] == '[uv_break]' else t + '[uv_break]' for t in text]
             refined.destroy()
             if refine_text_only:
                 yield text
                 return
-
         if stream:
             length = 0
             pass_batch_count = 0
@@ -432,9 +431,11 @@ class Chat:
         max_x_len = -1
         if len(result_list) == 0:
             return np.array([], dtype=np.float32)
+        length_list = []
         for result in result_list:
             if result.size(0) > max_x_len:
                 max_x_len = result.size(0)
+            length_list.append(result.size(0))
         batch_result = torch.zeros(
             (len(result_list), result_list[0].size(1), max_x_len),
             dtype=result_list[0].dtype,
@@ -447,7 +448,9 @@ class Chat:
         del_all(result_list)
         mel_specs = decoder(batch_result)
         del batch_result
-        wavs = self._vocos_decode(mel_specs)
+        wavs = []
+        for leng, spec in zip(length_list, mel_specs):
+            wavs.append(self._vocos_decode(spec[:, :leng * mel_specs.size(2) // max_x_len].unsqueeze(0)))
         del mel_specs
         return wavs
 
@@ -593,7 +596,6 @@ class Chat:
                 context=self.context,
             )
         )
-
         del emb, input_ids
         del_all(logits_warpers)
         del_all(logits_processors)

@@ -139,6 +139,7 @@ class GPT(nn.Module):
         return model.to(device), llama_config
 
     def prepare(self, compile=False):
+        self.gpt = self.gpt.to(dtype=torch.float16)
         if self.use_flash_attn and is_flash_attn_2_available():
             self.gpt = self.gpt.to(dtype=torch.float16)
         if compile and not self.is_te_llama:
@@ -160,7 +161,6 @@ class GPT(nn.Module):
         """
         get_emb
         """
-
         emb_text: torch.Tensor = self.emb_text(
             input_ids[text_mask].narrow(1, 0, 1).squeeze_(1).to(self.device_gpt)
         )
@@ -368,7 +368,7 @@ class GPT(nn.Module):
         return_attn=False,
         return_hidden=False,
         stream=False,
-        show_tqdm=True,
+        show_tqdm=False,
         ensure_non_empty=True,
         stream_batch=24,
         context=Context(),
